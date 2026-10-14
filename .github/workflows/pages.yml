@@ -1,0 +1,50 @@
+name: Publish official Zonix website
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zonix-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/configure-pages@v5
+      - name: Verify and extract reviewed static website
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile
+          source = Path('public_site.zip')
+          assert hashlib.sha256(source.read_bytes()).hexdigest() == '4cf56ac5180c06571f659b7693671837b91387fa299c0e85cb14df66c88d7d09'
+          target = Path('_site').resolve()
+          target.mkdir()
+          with zipfile.ZipFile(source) as archive:
+              for item in archive.infolist():
+                  name = Path(item.filename)
+                  assert not name.is_absolute() and '..' not in name.parts
+                  assert (target / name).resolve().is_relative_to(target)
+                  assert ((item.external_attr >> 16) & 0o170000) != 0o120000
+              archive.extractall(target)
+          assert (target / 'index.html').is_file()
+          PY
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
