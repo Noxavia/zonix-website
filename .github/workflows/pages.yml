@@ -32,6 +32,10 @@ jobs:
               archive.extractall(target)
           assert (target / 'index.html').is_file()
           PY
+      - name: Stage signed data-only advertising configuration
+        run: |
+          mkdir -p _site/config
+          cp config/ads.json _site/config/ads.json
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
